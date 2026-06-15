@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Custom Cursor Render Loop (Lerping outer ring for organic tail effect)
   function renderCursor() {
     // Lerping ring coordinates
-    const ease = 0.2; // Speed factor (snappier)
+    const ease = 0.5; // Speed factor (snappier)
     ring.x += (mouse.x - ring.x) * ease;
     ring.y += (mouse.y - ring.y) * ease;
 
@@ -761,45 +761,66 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // 8. SKILLS ANIMATION TRIGGER (circular & linear)
   // ==========================================
-  const skillsSection = document.getElementById('skills');
+  // Target the inner grid instead of the whole section so it triggers at the right moment
+  const skillsGrid = document.querySelector('.skills-grid');
   let skillsAnimated = false;
 
   const skillsObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting && !skillsAnimated) {
-        animateSkills();
-        skillsAnimated = true;
+        skillsAnimated = true; // Prevent re-triggering during the timeout
+        setTimeout(() => {
+          animateSkills();
+        }, 1700); // 1.7-second delay before starting
       }
     });
-  }, { threshold: 0.2 });
+  }, { rootMargin: '0px 0px -15% 0px', threshold: 0 }); 
+  // Triggers when the top of the skills grid crosses 15% from the bottom of the screen
 
-  if (skillsSection) {
-    skillsObserver.observe(skillsSection);
+  if (skillsGrid) {
+    skillsObserver.observe(skillsGrid);
   }
 
   function animateSkills() {
+    // Plain smooth easeInOut for a perfectly fluid, simple glide
+    const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+    
+    function animateCount(element, target, duration, delay) {
+      // Force visual reset to 0 immediately
+      element.textContent = "0%";
+      
+      setTimeout(() => {
+        let startTimestamp = null;
+        const step = (timestamp) => {
+          if (!startTimestamp) startTimestamp = timestamp;
+          const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+          const easeProgress = easeInOutSine(progress);
+          
+          element.textContent = `${Math.floor(easeProgress * target)}%`;
+          
+          if (progress < 1) {
+            window.requestAnimationFrame(step);
+          } else {
+            element.textContent = `${target}%`;
+          }
+        };
+        window.requestAnimationFrame(step);
+      }, delay);
+    }
+
     // 1. Linear progress bars fill
     const linearFills = document.querySelectorAll('.skill-bar-fill');
     const linearPercents = document.querySelectorAll('.skill-bar-percent');
 
     linearFills.forEach((fill, index) => {
-      const targetPercent = fill.getAttribute('data-percent');
-      fill.style.width = `${targetPercent}%`;
-
-      // Increment numeric text indicator
-      let count = 0;
-      const duration = 1500; // Matches CSS transition time
-      const interval = 20;
-      const step = targetPercent / (duration / interval);
-      const timer = setInterval(() => {
-        count += step;
-        if (count >= targetPercent) {
-          linearPercents[index].textContent = `${targetPercent}%`;
-          clearInterval(timer);
-        } else {
-          linearPercents[index].textContent = `${Math.floor(count)}%`;
-        }
-      }, interval);
+      const targetPercent = parseInt(fill.getAttribute('data-percent'), 10);
+      const delay = index * 250; // Elegant stagger effect
+      
+      setTimeout(() => {
+        fill.style.width = `${targetPercent}%`;
+      }, delay);
+      
+      animateCount(linearPercents[index], targetPercent, 2500, delay); // 2.5s luxury duration
     });
 
     // 2. Circular skill SVG meters
@@ -811,24 +832,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const radius = 40;
       const circumference = 2 * Math.PI * radius; // Approx 251.2
       const offset = circumference - (targetPercent / 100) * circumference;
+      const delay = index * 250;
 
-      // Animate stroke offset
-      circle.style.strokeDashoffset = offset;
-
-      // Increment text inside circle
-      let count = 0;
-      const duration = 1500;
-      const interval = 20;
-      const step = targetPercent / (duration / interval);
-      const timer = setInterval(() => {
-        count += step;
-        if (count >= targetPercent) {
-          circularPercents[index].textContent = `${targetPercent}%`;
-          clearInterval(timer);
-        } else {
-          circularPercents[index].textContent = `${Math.floor(count)}%`;
-        }
-      }, interval);
+      setTimeout(() => {
+        circle.style.strokeDashoffset = offset;
+      }, delay);
+      
+      animateCount(circularPercents[index], targetPercent, 2500, delay);
     });
   }
 
